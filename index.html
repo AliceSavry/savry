@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
 
 <!-- ═══════════════════════════════════════════════════════════════
      🎮  GAME HUB DES SAVRY — FICHIER UNIQUE index.html
@@ -303,6 +304,47 @@ button:active { transform: scale(0.96); }
 
 @media (min-width: 640px) { .mobile-controls { display: none; } }
 
+/* ─── La Nuit du Président ─── */
+.president-wrap {
+  position: relative; width: 100%; max-width: 800px;
+  aspect-ratio: 4/3; border-radius: 16px; overflow: hidden; margin: 0 auto;
+  background: radial-gradient(circle at center, #3d0028 0%, #1a000d 100%);
+  box-shadow: 0 0 50px rgba(255, 0, 85, 0.2);
+}
+.president-wrap canvas { display: block; width: 100%; height: 100%; }
+.president-hud {
+  position: absolute; top: 12px; left: 14px;
+  font-family: 'Fredoka One', cursive; font-size: 1.1rem;
+  color: #fff; pointer-events: none; text-shadow: 2px 2px 0 #000;
+}
+.president-record {
+  position: absolute; top: 12px; right: 14px;
+  font-family: 'Fredoka One', cursive; font-size: 0.95rem;
+  color: #00f2ea; pointer-events: none;
+}
+.president-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  background: rgba(45, 0, 24, 0.88); backdrop-filter: blur(5px); z-index: 10;
+  text-align: center; transition: opacity 0.3s; font-family: 'Fredoka One', cursive;
+  color: #fff; padding: 20px;
+}
+.president-overlay.phidden { opacity: 0; pointer-events: none; }
+.president-overlay h3 {
+  font-size: clamp(1.4rem, 5vw, 2.5rem); color: #00f2ea;
+  text-shadow: 4px 4px 0px #ff0055; animation: float 3s infinite ease-in-out;
+  margin-bottom: 8px;
+}
+.president-overlay p { font-size: clamp(0.8rem, 2.5vw, 1rem); margin-bottom: 8px; line-height: 1.5; max-width: 90%; }
+.president-btn {
+  background: linear-gradient(45deg, #ff0055, #ff5e62); border: none;
+  padding: 12px 32px; font-size: clamp(1rem, 3vw, 1.3rem);
+  font-family: 'Fredoka One', cursive; color: white; border-radius: 50px;
+  cursor: pointer; box-shadow: 0 10px 20px rgba(255, 0, 85, 0.4);
+  transition: transform 0.1s; margin-top: 8px;
+}
+.president-btn:active { transform: scale(0.95); }
+
 /* ─── Responsive ─── */
 @media (max-width: 480px) {
   .header-status { display: none; }
@@ -363,6 +405,17 @@ const GAMES = [
     emoji: "🐍",
     gradient: "linear-gradient(135deg, #40c057, #2b8a3e)",
     render: renderSnake,
+    players: "1",
+    difficulty: "Moyen",
+  },
+
+  {
+    id: "president",
+    title: "La Nuit du Président",
+    description: "Incarnez Manu. Évitez les Fantômes de la Dette. Récupérez les Cœurs de Croissance !",
+    emoji: "🏛️",
+    gradient: "linear-gradient(135deg, #ff0055, #2d0018)",
+    render: renderPresident,
     players: "1",
     difficulty: "Moyen",
   },
@@ -785,6 +838,300 @@ function renderSnake(container) {
 }
 
 
+/* ─────────────────────────────────────────────────────────────────
+   🎮 JEU 4 : LA NUIT DU PRÉSIDENT (Kawaii Horror)
+   ───────────────────────────────────────────────────────────────── */
+
+function renderPresident(container) {
+  let animationId = null;
+  let frames = 0;
+  let score = 0;
+  let highScore = parseInt(localStorage.getItem('macron_horror_highscore')) || 0;
+  let gameStatePres = 'MENU'; // MENU, PLAYING, GAMEOVER
+
+  container.innerHTML = `
+    <div class="president-wrap" id="pres-wrap">
+      <canvas id="presCanvas"></canvas>
+      <div class="president-hud">Croissance: <span id="pres-score">0</span>%</div>
+      <div class="president-record">Record: <span id="pres-highscore">${highScore}</span>%</div>
+      <div class="president-overlay" id="pres-start">
+        <h3>LA NUIT DU PRÉSIDENT</h3>
+        <p>Thème : Kawaii Horror</p>
+        <p>Incarnez Manu. Évitez les Fantômes de la Dette.<br>Récupérez les Cœurs de Croissance.</p>
+        <p style="font-size:0.8rem;color:#aaa;">Contrôles : Flèches / Toucher l'écran</p>
+        <button class="president-btn" id="pres-start-btn">Lancer le Mandat</button>
+      </div>
+      <div class="president-overlay phidden" id="pres-gameover">
+        <h3 style="color:#ff0055;text-shadow:4px 4px 0 #000;">DISSOLUTION !</h3>
+        <p>Score Final : <span id="pres-final-score">0</span>%</p>
+        <button class="president-btn" id="pres-restart-btn">Nouveau Quinquennat</button>
+      </div>
+    </div>
+  `;
+
+  const wrap = document.getElementById('pres-wrap');
+  const canvas = document.getElementById('presCanvas');
+  const ctx2d = canvas.getContext('2d');
+
+  // ─── Audio Engine ───
+  const PresAudio = {
+    ctx: null,
+    init() { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+    playTone(freq, type, duration, vol=0.1, slide=0) {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      if (slide !== 0) osc.frequency.linearRampToValueAtTime(freq+slide, this.ctx.currentTime+duration);
+      gain.gain.setValueAtTime(0, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime+0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime+duration);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime+duration);
+    },
+    playCollect() { this.playTone(600,'sine',0.1,0.1,200); setTimeout(()=>this.playTone(900,'sine',0.2,0.1,0),100); },
+    playGameOver() { this.playTone(200,'sawtooth',0.5,0.2,-150); setTimeout(()=>this.playTone(100,'square',0.5,0.2,-50),200); },
+  };
+
+  // ─── Resize ───
+  let gW = 0, gH = 0;
+  function presResize() {
+    gW = wrap.clientWidth; gH = wrap.clientHeight;
+    canvas.width = gW; canvas.height = gH;
+  }
+  presResize();
+  const resizeHandler = () => presResize();
+  window.addEventListener('resize', resizeHandler);
+
+  // ─── Player ───
+  const player = {
+    size: 30, x: gW/2, y: gH/2, speed: 5, vx: 0, vy: 0, angle: 0,
+    update() {
+      if (presInput.keys['ArrowUp']||presInput.keys['z']||presInput.keys['Z']) this.vy = -this.speed;
+      else if (presInput.keys['ArrowDown']||presInput.keys['s']||presInput.keys['S']) this.vy = this.speed;
+      else this.vy = 0;
+      if (presInput.keys['ArrowLeft']||presInput.keys['q']||presInput.keys['Q']) this.vx = -this.speed;
+      else if (presInput.keys['ArrowRight']||presInput.keys['d']||presInput.keys['D']) this.vx = this.speed;
+      else this.vx = 0;
+      if (presInput.touch.active) {
+        const dx = presInput.touch.x - this.x, dy = presInput.touch.y - this.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist > 5) { this.vx = (dx/dist)*this.speed; this.vy = (dy/dist)*this.speed; }
+        else { this.vx = 0; this.vy = 0; }
+      }
+      this.x += this.vx; this.y += this.vy;
+      if (this.x < this.size) this.x = this.size;
+      if (this.x > gW-this.size) this.x = gW-this.size;
+      if (this.y < this.size) this.y = this.size;
+      if (this.y > gH-this.size) this.y = gH-this.size;
+      this.angle += 0.05;
+    },
+    draw() {
+      ctx2d.save(); ctx2d.translate(this.x, this.y);
+      const grad = ctx2d.createRadialGradient(0,0,10,0,0,150);
+      grad.addColorStop(0,'rgba(255,255,255,0.2)');
+      grad.addColorStop(1,'rgba(0,0,0,0)');
+      ctx2d.fillStyle = grad;
+      ctx2d.beginPath(); ctx2d.arc(0,0,150,0,Math.PI*2); ctx2d.fill();
+      ctx2d.fillStyle = '#091e38';
+      ctx2d.beginPath(); ctx2d.arc(0,10,this.size-5,0,Math.PI*2); ctx2d.fill();
+      ctx2d.fillStyle = '#ffdbac';
+      ctx2d.beginPath(); ctx2d.arc(0,-5,this.size-8,0,Math.PI*2); ctx2d.fill();
+      ctx2d.fillStyle = '#000';
+      ctx2d.beginPath(); ctx2d.arc(-8,-5,3,0,Math.PI*2); ctx2d.arc(8,-5,3,0,Math.PI*2); ctx2d.fill();
+      ctx2d.fillStyle = '#002654'; ctx2d.fillRect(-10,10,6,10);
+      ctx2d.fillStyle = '#ffffff'; ctx2d.fillRect(-4,10,6,10);
+      ctx2d.fillStyle = '#ed2939'; ctx2d.fillRect(2,10,6,10);
+      ctx2d.restore();
+    }
+  };
+
+  // ─── Enemies ───
+  let enemies = [];
+  function spawnEnemy() {
+    const e = { size: 25, speed: 1.5+Math.random()*1.5, angle: 0 };
+    if (Math.random()<0.5) { e.x = Math.random()<0.5 ? -50 : gW+50; e.y = Math.random()*gH; }
+    else { e.x = Math.random()*gW; e.y = Math.random()<0.5 ? -50 : gH+50; }
+    enemies.push(e);
+  }
+  function updateEnemy(e) {
+    const dx = player.x-e.x, dy = player.y-e.y, dist = Math.sqrt(dx*dx+dy*dy);
+    e.x += (dx/dist)*e.speed; e.y += (dy/dist)*e.speed; e.angle += 0.1;
+  }
+  function drawEnemy(e) {
+    ctx2d.save(); ctx2d.translate(e.x, e.y); ctx2d.rotate(Math.sin(e.angle)*0.1);
+    ctx2d.shadowBlur = 15; ctx2d.shadowColor = '#ff0055';
+    ctx2d.fillStyle = '#ff0055';
+    ctx2d.beginPath(); ctx2d.arc(0,-5,e.size,Math.PI,0);
+    ctx2d.lineTo(e.size,15); ctx2d.lineTo(0,5); ctx2d.lineTo(-e.size,15); ctx2d.fill();
+    ctx2d.strokeStyle = '#2d0018'; ctx2d.lineWidth = 3;
+    ctx2d.beginPath(); ctx2d.moveTo(-10,-5); ctx2d.lineTo(-4,1); ctx2d.stroke();
+    ctx2d.beginPath(); ctx2d.moveTo(-4,-5); ctx2d.lineTo(-10,1); ctx2d.stroke();
+    ctx2d.beginPath(); ctx2d.moveTo(4,-5); ctx2d.lineTo(10,1); ctx2d.stroke();
+    ctx2d.beginPath(); ctx2d.moveTo(10,-5); ctx2d.lineTo(4,1); ctx2d.stroke();
+    ctx2d.shadowBlur = 0; ctx2d.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx2d.font = '10px sans-serif'; ctx2d.textAlign = 'center';
+    ctx2d.fillText('€€€', 0, -35);
+    ctx2d.restore();
+  }
+
+  // ─── Coins ───
+  let coins = [];
+  function spawnCoin() {
+    coins.push({ x: Math.random()*(gW-40)+20, y: Math.random()*(gH-40)+20, size: 15, pulse: 0 });
+  }
+  function drawCoin(c) {
+    c.pulse += 0.1;
+    const sc = 1+Math.sin(c.pulse)*0.2;
+    ctx2d.save(); ctx2d.translate(c.x, c.y); ctx2d.scale(sc, sc);
+    ctx2d.fillStyle = '#00f2ea'; ctx2d.shadowBlur = 10; ctx2d.shadowColor = '#00f2ea';
+    ctx2d.beginPath(); ctx2d.moveTo(0,5);
+    ctx2d.bezierCurveTo(0,5,-10,-5,-10,-10); ctx2d.bezierCurveTo(-10,-15,-5,-15,0,-10);
+    ctx2d.bezierCurveTo(5,-15,10,-15,10,-10); ctx2d.bezierCurveTo(10,-5,0,5,0,5);
+    ctx2d.fill(); ctx2d.restore();
+  }
+
+  // ─── Particles ───
+  let particles = [];
+  function spawnParticles(x, y, color) {
+    for (let i = 0; i < 15; i++) {
+      particles.push({
+        x, y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8,
+        life: 1.0, color, size: Math.random()*5+2
+      });
+    }
+  }
+  function updateParticle(p) { p.x += p.vx; p.y += p.vy; p.life -= 0.02; p.vx *= 0.95; p.vy *= 0.95; }
+  function drawParticle(p) {
+    ctx2d.globalAlpha = Math.max(0, p.life);
+    ctx2d.fillStyle = p.color;
+    ctx2d.beginPath(); ctx2d.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx2d.fill();
+    ctx2d.globalAlpha = 1.0;
+  }
+
+  // ─── Input ───
+  const presInput = { keys: {}, touch: { x:0, y:0, active:false } };
+  function presKeyDown(e) {
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+    presInput.keys[e.key] = true;
+  }
+  function presKeyUp(e) { presInput.keys[e.key] = false; }
+  window.addEventListener('keydown', presKeyDown);
+  window.addEventListener('keyup', presKeyUp);
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault(); presInput.touch.active = true;
+    const rect = canvas.getBoundingClientRect();
+    presInput.touch.x = e.touches[0].clientX - rect.left;
+    presInput.touch.y = e.touches[0].clientY - rect.top;
+  }, {passive:false});
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    presInput.touch.x = e.touches[0].clientX - rect.left;
+    presInput.touch.y = e.touches[0].clientY - rect.top;
+  }, {passive:false});
+  canvas.addEventListener('touchend', () => { presInput.touch.active = false; });
+
+  // Also support mouse for desktop
+  canvas.addEventListener('mousedown', e => {
+    presInput.touch.active = true;
+    const rect = canvas.getBoundingClientRect();
+    presInput.touch.x = e.clientX - rect.left;
+    presInput.touch.y = e.clientY - rect.top;
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!presInput.touch.active) return;
+    const rect = canvas.getBoundingClientRect();
+    presInput.touch.x = e.clientX - rect.left;
+    presInput.touch.y = e.clientY - rect.top;
+  });
+  canvas.addEventListener('mouseup', () => { presInput.touch.active = false; });
+
+  // ─── Game Over ───
+  function presGameOver() {
+    gameStatePres = 'GAMEOVER';
+    PresAudio.playGameOver();
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('macron_horror_highscore', highScore);
+      document.getElementById('pres-highscore').innerText = highScore;
+    }
+    document.getElementById('pres-final-score').innerText = score;
+    document.getElementById('pres-gameover').classList.remove('phidden');
+    canvas.style.transform = 'translate(5px, 5px)';
+    setTimeout(() => canvas.style.transform = 'none', 100);
+  }
+
+  // ─── Init Game ───
+  function presInitGame() {
+    PresAudio.init();
+    presResize();
+    player.x = gW/2; player.y = gH/2; player.vx = 0; player.vy = 0;
+    enemies = []; coins = []; particles = [];
+    score = 0; frames = 0;
+    spawnCoin();
+    document.getElementById('pres-start').classList.add('phidden');
+    document.getElementById('pres-gameover').classList.add('phidden');
+    document.getElementById('pres-score').innerText = '0';
+    gameStatePres = 'PLAYING';
+    if (animationId) cancelAnimationFrame(animationId);
+    presLoop();
+  }
+
+  // ─── Main Loop ───
+  function presLoop() {
+    if (gameStatePres !== 'PLAYING') return;
+    ctx2d.fillStyle = 'rgba(45, 0, 24, 0.3)';
+    ctx2d.fillRect(0, 0, gW, gH);
+    frames++;
+    player.update(); player.draw();
+
+    if (frames % Math.max(20, 100-Math.floor(score/5)) === 0) spawnEnemy();
+
+    enemies.forEach(e => {
+      updateEnemy(e); drawEnemy(e);
+      const dx = player.x-e.x, dy = player.y-e.y;
+      if (Math.sqrt(dx*dx+dy*dy) < player.size+e.size-10) {
+        spawnParticles(player.x, player.y, '#ff0055');
+        presGameOver();
+      }
+    });
+
+    coins.forEach((c, i) => {
+      drawCoin(c);
+      const dx = player.x-c.x, dy = player.y-c.y;
+      if (Math.sqrt(dx*dx+dy*dy) < player.size+c.size) {
+        score += 10;
+        document.getElementById('pres-score').innerText = score;
+        PresAudio.playCollect();
+        spawnParticles(c.x, c.y, '#00f2ea');
+        coins.splice(i, 1);
+        spawnCoin();
+      }
+    });
+
+    particles.forEach((p, i) => { updateParticle(p); drawParticle(p); if (p.life <= 0) particles.splice(i, 1); });
+
+    animationId = requestAnimationFrame(presLoop);
+  }
+
+  // ─── Button bindings ───
+  document.getElementById('pres-start-btn').addEventListener('click', presInitGame);
+  document.getElementById('pres-restart-btn').addEventListener('click', presInitGame);
+
+  // ─── Cleanup ───
+  window.presidentCleanup = () => {
+    if (animationId) cancelAnimationFrame(animationId);
+    window.removeEventListener('keydown', presKeyDown);
+    window.removeEventListener('keyup', presKeyUp);
+    window.removeEventListener('resize', resizeHandler);
+    gameStatePres = 'MENU';
+  };
+}
+
+
 /* ┌──────────────────────────────────────────────────────────────────┐
    │                                                                  │
    │  ★★★  ÉTAPE 2 : CODER LE JEU ICI  ★★★                         │
@@ -835,8 +1182,9 @@ let currentView = "hub"; // "hub" ou l'id d'un jeu
 const app = document.getElementById('app');
 
 function navigate(view) {
-  // Cleanup snake si on quitte
+  // Cleanup des jeux si on quitte
   if (currentView === 'snake' && window.snakeCleanup) window.snakeCleanup();
+  if (currentView === 'president' && window.presidentCleanup) window.presidentCleanup();
   currentView = view;
   renderApp();
   window.scrollTo({ top: 0, behavior: 'smooth' });
