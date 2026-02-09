@@ -1,12 +1,977 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🎮 Les Savry - Game Hub</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 Les Savry — Game Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     🎮  GAME HUB DES SAVRY — FICHIER UNIQUE index.html
+     
+     ┌──────────────────────────────────────────────────────────┐
+     │  👉 POUR AJOUTER UN JEU :                               │
+     │                                                          │
+     │  1. Ctrl+F → chercher « ÉTAPE 1 : AJOUTER UN JEU ICI » │
+     │     → Copier/coller le modèle dans le tableau GAMES      │
+     │                                                          │
+     │  2. Ctrl+F → chercher « ÉTAPE 2 : CODER LE JEU ICI »   │
+     │     → Créer la fonction du jeu en copiant le modèle      │
+     │                                                          │
+     │  C'est tout ! 🎉                                         │
+     └──────────────────────────────────────────────────────────┘
+     
+     SOMMAIRE :
+       ~Ligne 30    → 🎨 CSS (styles + animations)
+       ~Ligne 350   → 📋 REGISTRE DES JEUX (tableau GAMES)
+       ~Ligne 410   → 🎮 CODE DES JEUX (Morpion, Memory, Snake)
+       ~Ligne 900   → 🖥️ MOTEUR DU SITE (affichage, navigation)
+     
+     ═══════════════════════════════════════════════════════════════ -->
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   🎨 STYLES & ANIMATIONS
+   ══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --savry-50: #f0f4ff;  --savry-100: #dbe4ff;  --savry-200: #bac8ff;
+  --savry-300: #91a7ff;  --savry-400: #748ffc;  --savry-500: #5c7cfa;
+  --savry-600: #4c6ef5;  --savry-700: #4263eb;  --savry-800: #3b5bdb;
+  --savry-900: #364fc7;
+  --radius: 16px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.1);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.12);
+  --shadow-xl: 0 20px 60px rgba(0,0,0,.15);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, var(--savry-50) 0%, #fff 50%, #f5f0ff 100%);
+  color: #1a1a2e;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { cursor: pointer; border: none; font-family: inherit; }
+button:active { transform: scale(0.96); }
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--savry-300); border-radius: 99px; }
+
+/* ─── Animations ─── */
+@keyframes float { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-8px); } }
+@keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+@keyframes scaleIn { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes pulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.15); } }
+@keyframes shimmer { 0%{ background-position:-200% center; } 100%{ background-position:200% center; } }
+@keyframes confetti { 0%{ transform:translateY(0) rotate(0); opacity:1; } 100%{ transform:translateY(-120px) rotate(360deg); opacity:0; } }
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-slideUp { animation: slideUp .5s ease-out both; }
+.animate-scaleIn { animation: scaleIn .3s ease-out both; }
+.animate-fadeIn { animation: fadeIn .4s ease-out both; }
+.animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ─── Header ─── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  background: rgba(255,255,255,.82);
+  border-bottom: 1px solid var(--savry-100);
+  box-shadow: var(--shadow-sm);
+}
+.header-inner {
+  max-width: 1100px; margin: 0 auto;
+  padding: 12px 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+.header-logo { font-size: 28px; }
+.header-title {
+  font-size: 22px; font-weight: 900;
+  background: linear-gradient(135deg, var(--savry-600), var(--savry-800));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.header-sub { font-size: 12px; color: #999; margin-top: -3px; font-weight: 500; }
+.header-status {
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #aaa;
+  background: #f5f5f5; border-radius: 99px; padding: 5px 12px;
+}
+.header-dot { width: 8px; height: 8px; border-radius: 50%; background: #51cf66; animation: pulse 2s infinite; }
+
+.btn-back {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--savry-600); font-weight: 600; font-size: 15px;
+  background: var(--savry-50); border-radius: 12px; padding: 8px 16px;
+  transition: all .2s;
+}
+.btn-back:hover { background: var(--savry-100); color: var(--savry-800); }
+.btn-back .arrow { transition: transform .2s; }
+.btn-back:hover .arrow { transform: translateX(-3px); }
+
+.game-header-title { font-size: 18px; font-weight: 700; color: #333; }
+
+/* ─── Hero ─── */
+.hero { text-align: center; padding: 40px 20px 10px; }
+.hero h2 { font-size: clamp(26px, 5vw, 38px); font-weight: 900; color: #1a1a2e; }
+.hero p { color: #888; font-size: 16px; max-width: 450px; margin: 8px auto 0; line-height: 1.5; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--savry-50); color: var(--savry-700);
+  border-radius: 99px; padding: 8px 18px; margin-top: 16px;
+  font-size: 14px; font-weight: 600;
+}
+
+/* ─── Grid ─── */
+.games-grid {
+  max-width: 1100px; margin: 30px auto;
+  padding: 0 20px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+/* ─── Card ─── */
+.game-card {
+  background: #fff; border-radius: 24px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden; text-align: left;
+  transition: all .3s cubic-bezier(.25,.8,.25,1);
+  width: 100%;
+}
+.game-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-xl); }
+
+.card-header {
+  height: 130px; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.card-header .emoji {
+  font-size: 56px; transition: transform .3s; filter: drop-shadow(0 4px 8px rgba(0,0,0,.2));
+  position: relative; z-index: 2;
+}
+.game-card:hover .card-header .emoji { transform: scale(1.25) rotate(-5deg); }
+.card-header .circle1, .card-header .circle2 {
+  position: absolute; border-radius: 50%; background: rgba(255,255,255,.12);
+}
+.card-header .circle1 { width: 80px; height: 80px; top: -20px; right: -20px; }
+.card-header .circle2 { width: 60px; height: 60px; bottom: -15px; left: -15px; }
+
+.card-body { padding: 18px 20px 22px; }
+.card-body h3 { font-size: 18px; font-weight: 700; color: #333; transition: color .2s; }
+.game-card:hover .card-body h3 { color: var(--savry-600); }
+.card-body p { font-size: 14px; color: #888; margin-top: 4px; line-height: 1.4; }
+
+.card-tags { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.tag {
+  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+}
+.tag-easy { background: #e6f9e8; color: #2b8a3e; }
+.tag-medium { background: #fff9db; color: #e67700; }
+.tag-hard { background: #ffe3e3; color: #c92a2a; }
+.tag-players { background: var(--savry-50); color: var(--savry-600); }
+
+.card-play {
+  display: flex; align-items: center; gap: 6px; margin-top: 14px;
+  font-size: 14px; font-weight: 600; color: var(--savry-500);
+  opacity: 0; transition: opacity .3s;
+}
+.game-card:hover .card-play { opacity: 1; }
+.card-play .play-arrow { transition: transform .2s; }
+.game-card:hover .card-play .play-arrow { transform: translateX(4px); }
+
+/* ─── Game Player ─── */
+.game-player {
+  max-width: 900px; margin: 24px auto;
+  padding: 0 12px;
+}
+.game-player-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 8px; margin-bottom: 20px;
+}
+.game-player-header .gp-emoji { font-size: 32px; }
+.game-player-header .gp-title { font-size: 20px; font-weight: 700; color: #333; }
+.game-player-header .gp-desc { font-size: 13px; color: #999; }
+
+.game-container {
+  background: #fff; border-radius: 24px;
+  box-shadow: var(--shadow-lg); border: 1px solid #f0f0f0;
+  padding: 24px; display: flex; justify-content: center;
+  overflow: hidden;
+}
+
+/* ─── Footer ─── */
+.footer { text-align: center; padding: 50px 20px 30px; font-size: 13px; color: #ccc; }
+
+/* ─── Jeux : utilitaires communs ─── */
+.game-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+
+.stats-bar { display: flex; gap: 20px; text-align: center; flex-wrap: wrap; justify-content: center; }
+.stat-box { border-radius: 16px; padding: 10px 22px; }
+.stat-label { font-size: 12px; font-weight: 500; }
+.stat-value { font-size: 28px; font-weight: 900; }
+
+.btn-primary {
+  padding: 10px 24px; border-radius: 14px; font-weight: 700; font-size: 15px;
+  color: #fff; transition: all .2s; box-shadow: var(--shadow-md);
+}
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.btn-secondary {
+  padding: 10px 24px; border-radius: 14px; font-weight: 600; font-size: 14px;
+  background: #f0f0f0; color: #555; transition: all .2s;
+}
+.btn-secondary:hover { background: #e0e0e0; }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+.status-msg { font-size: 18px; font-weight: 700; min-height: 32px; text-align: center; }
+
+/* ─── Morpion ─── */
+.morpion-board { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.morpion-cell {
+  width: 80px; height: 80px; border-radius: 16px;
+  background: #fff; box-shadow: var(--shadow-sm);
+  font-size: 36px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+  transition: all .2s; border: 2px solid transparent;
+}
+.morpion-cell:not(.filled):hover { background: #f5f5f5; transform: scale(1.05); }
+.morpion-cell.filled { cursor: default; }
+.morpion-cell.win { background: #e6f9e8; border-color: #51cf66; transform: scale(1.05); }
+.morpion-cell .x { color: #4c6ef5; }
+.morpion-cell .o { color: #f03e3e; }
+
+@media (min-width: 480px) { .morpion-cell { width: 96px; height: 96px; font-size: 42px; } }
+
+.score-active { transform: scale(1.08); box-shadow: 0 0 0 3px; }
+
+/* ─── Memory ─── */
+.memory-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.memory-card {
+  width: 64px; height: 64px; border-radius: 12px;
+  font-size: 28px; display: flex; align-items: center; justify-content: center;
+  transition: all .3s; font-weight: 700;
+}
+.memory-card.hidden-card {
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  color: rgba(255,255,255,.6); box-shadow: var(--shadow-sm);
+}
+.memory-card.hidden-card:hover { transform: scale(1.08); box-shadow: var(--shadow-md); }
+.memory-card.flipped { background: #fff; box-shadow: var(--shadow-md); transform: scale(1.05); }
+.memory-card.matched { background: #e6f9e8; border: 2px solid #b2f2bb; transform: scale(.95); opacity: .8; }
+
+@media (min-width: 480px) { .memory-card { width: 80px; height: 80px; font-size: 34px; } }
+
+/* ─── Snake ─── */
+.snake-grid {
+  display: grid; border-radius: 16px; overflow: hidden;
+  border: 2px solid #b2f2bb; background: rgba(200,230,200,.15);
+}
+.snake-cell {
+  display: flex; align-items: center; justify-content: center;
+  transition: background .1s;
+}
+.snake-cell.even { background: rgba(200,230,200,.25); }
+.snake-cell.odd { background: rgba(200,230,200,.12); }
+.snake-cell.head { background: #2b8a3e; border-radius: 4px; box-shadow: 0 0 6px rgba(0,100,0,.4); font-size: 10px; }
+.snake-cell.body { background: #40c057; border-radius: 2px; }
+.snake-cell.food { font-size: 12px; }
+
+.snake-overlay { text-align: center; }
+.snake-overlay h3 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.snake-overlay p { font-size: 14px; color: #888; margin-bottom: 14px; }
+
+.mobile-controls {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; width: 150px;
+}
+.ctrl-btn {
+  padding: 12px; border-radius: 10px; font-size: 18px;
+  background: #d3f9d8; transition: background .15s;
+}
+.ctrl-btn:active { background: #b2f2bb; }
+.ctrl-btn.pause-btn { background: #fff3bf; font-size: 12px; font-weight: 700; }
+.ctrl-btn.pause-btn:active { background: #ffe066; }
+
+@media (min-width: 640px) { .mobile-controls { display: none; } }
+
+/* ─── Responsive ─── */
+@media (max-width: 480px) {
+  .header-status { display: none; }
+  .header-title { font-size: 18px; }
+  .hero h2 { font-size: 24px; }
+  .games-grid { gap: 16px; grid-template-columns: 1fr; }
+  .card-play { opacity: 1; }
+  .game-container { padding: 16px; }
+  .stat-box { padding: 8px 16px; }
+  .stat-value { font-size: 22px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  Le contenu est généré par le JS ci-dessous   -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="app"></div>
+
+<script>
+/* ╔══════════════════════════════════════════════════════════════════╗
+   ║                                                                ║
+   ║  📋  REGISTRE DES JEUX                                         ║
+   ║                                                                ║
+   ║  Chaque jeu = un objet dans le tableau GAMES.                  ║
+   ║  Le champ "render" est le nom de la fonction qui dessine       ║
+   ║  le jeu dans le <div> passé en paramètre.                     ║
+   ║                                                                ║
+   ╚══════════════════════════════════════════════════════════════════╝ */
+
+const GAMES = [
+  {
+    id: "morpion",
+    title: "Morpion",
+    description: "Le classique ! Alignez 3 symboles pour gagner.",
+    emoji: "❌",
+    gradient: "linear-gradient(135deg, #4c6ef5, #3b5bdb)",
+    render: renderMorpion,
+    players: "2",
+    difficulty: "Facile",
+  },
+  {
+    id: "memory",
+    title: "Memory",
+    description: "Retournez les cartes et trouvez les paires !",
+    emoji: "🧠",
+    gradient: "linear-gradient(135deg, #7c3aed, #db2777)",
+    render: renderMemory,
+    players: "1-4",
+    difficulty: "Facile",
+  },
+  {
+    id: "snake",
+    title: "Snake",
+    description: "Mangez les pommes et grandissez sans vous mordre !",
+    emoji: "🐍",
+    gradient: "linear-gradient(135deg, #40c057, #2b8a3e)",
+    render: renderSnake,
+    players: "1",
+    difficulty: "Moyen",
+  },
+
+  /* ┌──────────────────────────────────────────────────────────────┐
+     │                                                              │
+     │  ★★★  ÉTAPE 1 : AJOUTER UN JEU ICI  ★★★                   │
+     │                                                              │
+     │  Copier-coller ce modèle (enlever les //) :                 │
+     │                                                              │
+     │  {                                                           │
+     │    id: "mon-jeu",                                            │
+     │    title: "Mon Super Jeu",                                   │
+     │    description: "Description courte du jeu.",                │
+     │    emoji: "🎯",                                              │
+     │    gradient: "linear-gradient(135deg, #ff6b6b, #ee5a24)",   │
+     │    render: renderMonSuperJeu,                                │
+     │    players: "1-2",                                           │
+     │    difficulty: "Facile",    // Facile | Moyen | Difficile    │
+     │  },                                                          │
+     │                                                              │
+     │  Puis coder la fonction renderMonSuperJeu(container)         │
+     │  → chercher « ÉTAPE 2 : CODER LE JEU ICI » plus bas        │
+     │                                                              │
+     └──────────────────────────────────────────────────────────────┘ */
+];
+
+
+/* ╔══════════════════════════════════════════════════════════════════╗
+   ║                                                                ║
+   ║  🎮  CODE DES JEUX                                             ║
+   ║                                                                ║
+   ║  Chaque jeu est une fonction : renderXxx(container)            ║
+   ║  "container" est le <div> dans lequel dessiner le jeu.         ║
+   ║  La fonction doit tout gérer : HTML, état, événements.        ║
+   ║                                                                ║
+   ╚══════════════════════════════════════════════════════════════════╝ */
+
+
+/* ─────────────────────────────────────────────────────────────────
+   🎮 JEU 1 : MORPION (Tic-Tac-Toe)
+   ───────────────────────────────────────────────────────────────── */
+
+function renderMorpion(container) {
+  let board = Array(9).fill(null);
+  let current = "X";
+  let scores = { X: 0, O: 0 };
+  let gameOver = false;
+  let winLine = null;
+
+  const COMBOS = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  function checkWin(b) {
+    for (const c of COMBOS) {
+      if (b[c[0]] && b[c[0]] === b[c[1]] && b[c[0]] === b[c[2]])
+        return { winner: b[c[0]], line: c };
+    }
+    return null;
+  }
+
+  function draw() {
+    const result = checkWin(board);
+    const isDraw = !result && board.every(c => c !== null);
+
+    container.innerHTML = `
+      <div class="game-wrap">
+        <div class="stats-bar">
+          <div class="stat-box" style="background:#edf2ff;${current==='X'&&!gameOver ? 'box-shadow:0 0 0 3px #4c6ef5;transform:scale(1.05);' : ''}">
+            <div class="stat-label" style="color:#4c6ef5;">Joueur X</div>
+            <div class="stat-value" style="color:#364fc7;">${scores.X}</div>
+          </div>
+          <div style="display:flex;align-items:center;color:#ccc;font-weight:700;font-size:18px;">VS</div>
+          <div class="stat-box" style="background:#ffe3e3;${current==='O'&&!gameOver ? 'box-shadow:0 0 0 3px #f03e3e;transform:scale(1.05);' : ''}">
+            <div class="stat-label" style="color:#f03e3e;">Joueur O</div>
+            <div class="stat-value" style="color:#c92a2a;">${scores.O}</div>
+          </div>
+        </div>
+
+        <div class="status-msg animate-fadeIn">
+          ${result ? `<span style="color:#2b8a3e;">🎉 ${result.winner} a gagné !</span>` :
+            isDraw ? `<span style="color:#e67700;">🤝 Match nul !</span>` :
+            `<span style="color:#888;">Au tour de <strong style="color:${current==='X'?'#4c6ef5':'#f03e3e'}">${current}</strong></span>`
+          }
+        </div>
+
+        <div class="morpion-board">
+          ${board.map((cell, i) => {
+            const isWin = winLine && winLine.includes(i);
+            return `<button class="morpion-cell ${cell ? 'filled' : ''} ${isWin ? 'win' : ''}" data-i="${i}">
+              ${cell ? `<span class="${cell.toLowerCase()} animate-scaleIn">${cell}</span>` : ''}
+            </button>`;
+          }).join('')}
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-primary" style="background:var(--savry-500);" onclick="morpionReset()">🔄 Nouvelle partie</button>
+          <button class="btn-secondary" onclick="morpionFullReset()">Réinitialiser scores</button>
+        </div>
+      </div>
+    `;
+
+    container.querySelectorAll('.morpion-cell:not(.filled)').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (gameOver) return;
+        const idx = parseInt(btn.dataset.i);
+        board[idx] = current;
+        const r = checkWin(board);
+        if (r) {
+          gameOver = true;
+          winLine = r.line;
+          scores[r.winner]++;
+        } else if (board.every(c => c)) {
+          gameOver = true;
+        } else {
+          current = current === 'X' ? 'O' : 'X';
+        }
+        draw();
+      });
+    });
+  }
+
+  window.morpionReset = () => { board = Array(9).fill(null); current = 'X'; gameOver = false; winLine = null; draw(); };
+  window.morpionFullReset = () => { scores = { X: 0, O: 0 }; window.morpionReset(); };
+
+  draw();
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   🎮 JEU 2 : MEMORY
+   ───────────────────────────────────────────────────────────────── */
+
+function renderMemory(container) {
+  const EMOJIS = ["🎮","🎲","🎯","🏆","⭐","🎪","🎨","🎵"];
+  let cards, selected, moves, best, checking;
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function init() {
+    const pairs = shuffle([...EMOJIS, ...EMOJIS]);
+    cards = pairs.map((emoji, id) => ({ id, emoji, flipped: false, matched: false }));
+    selected = []; moves = 0; checking = false;
+    best = best || null;
+    draw();
+  }
+
+  function draw() {
+    const matched = cards.filter(c => c.matched).length;
+    const won = matched === cards.length;
+    if (won && (best === null || moves < best)) best = moves;
+
+    container.innerHTML = `
+      <div class="game-wrap">
+        <div class="stats-bar">
+          <div class="stat-box" style="background:#faf5ff;">
+            <div class="stat-label" style="color:#7c3aed;">Coups</div>
+            <div class="stat-value" style="color:#5b21b6;">${moves}</div>
+          </div>
+          <div class="stat-box" style="background:#fdf2f8;">
+            <div class="stat-label" style="color:#db2777;">Paires</div>
+            <div class="stat-value" style="color:#9d174d;">${matched/2}/${EMOJIS.length}</div>
+          </div>
+          ${best !== null ? `
+          <div class="stat-box" style="background:#fefce8;">
+            <div class="stat-label" style="color:#ca8a04;">Record</div>
+            <div class="stat-value" style="color:#a16207;">${best}</div>
+          </div>` : ''}
+        </div>
+
+        ${won ? `
+        <div class="status-msg animate-scaleIn">
+          <span style="color:#2b8a3e;">🎉 Bravo ! En ${moves} coups !</span>
+        </div>` : ''}
+
+        <div class="memory-grid">
+          ${cards.map(card => {
+            const cls = card.matched ? 'matched' : card.flipped ? 'flipped' : 'hidden-card';
+            return `<button class="memory-card ${cls}" data-id="${card.id}">
+              ${(card.flipped || card.matched) ? `<span class="animate-scaleIn">${card.emoji}</span>` : '?'}
+            </button>`;
+          }).join('')}
+        </div>
+
+        <button class="btn-primary" style="background:#7c3aed;" onclick="memoryRestart()">🔄 Nouvelle partie</button>
+      </div>
+    `;
+
+    container.querySelectorAll('.memory-card.hidden-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (checking) return;
+        const id = parseInt(btn.dataset.id);
+        const card = cards.find(c => c.id === id);
+        if (!card || card.flipped || card.matched) return;
+        card.flipped = true;
+        selected.push(id);
+        draw();
+
+        if (selected.length === 2) {
+          moves++;
+          checking = true;
+          const c1 = cards.find(c => c.id === selected[0]);
+          const c2 = cards.find(c => c.id === selected[1]);
+          if (c1.emoji === c2.emoji) {
+            setTimeout(() => { c1.matched = c2.matched = true; selected = []; checking = false; draw(); }, 400);
+          } else {
+            setTimeout(() => { c1.flipped = c2.flipped = false; selected = []; checking = false; draw(); }, 900);
+          }
+        }
+      });
+    });
+  }
+
+  window.memoryRestart = init;
+  init();
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   🎮 JEU 3 : SNAKE
+   ───────────────────────────────────────────────────────────────── */
+
+function renderSnake(container) {
+  const SIZE = 15;
+  const SPEED_INIT = 150;
+  let snake, food, dir, score, bestScore, playing, paused, interval;
+  let touchStart = null;
+  bestScore = 0;
+
+  function randomFood() {
+    let p;
+    do { p = { x: Math.floor(Math.random()*SIZE), y: Math.floor(Math.random()*SIZE) }; }
+    while (snake.some(s => s.x === p.x && s.y === p.y));
+    return p;
+  }
+
+  function init() {
+    snake = [{ x: 7, y: 7 }];
+    food = { x: 5, y: 5 };
+    dir = "RIGHT"; score = 0; playing = false; paused = false;
+    if (interval) clearInterval(interval);
+    interval = null;
+    draw();
+  }
+
+  function startGame() {
+    snake = [{ x: 7, y: 7 }];
+    food = randomFood();
+    dir = "RIGHT"; score = 0; playing = true; paused = false;
+    if (interval) clearInterval(interval);
+    gameLoop();
+    draw();
+  }
+
+  function gameLoop() {
+    const speed = Math.max(70, SPEED_INIT - score * 3);
+    if (interval) clearInterval(interval);
+    interval = setInterval(tick, speed);
+  }
+
+  function tick() {
+    if (!playing || paused) return;
+    const head = { ...snake[0] };
+    if (dir === "UP") head.y--;
+    if (dir === "DOWN") head.y++;
+    if (dir === "LEFT") head.x--;
+    if (dir === "RIGHT") head.x++;
+
+    if (head.x < 0 || head.x >= SIZE || head.y < 0 || head.y >= SIZE ||
+        snake.some(s => s.x === head.x && s.y === head.y)) {
+      playing = false;
+      clearInterval(interval);
+      if (score > bestScore) bestScore = score;
+      draw();
+      return;
+    }
+
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+      score++;
+      food = randomFood();
+      clearInterval(interval);
+      gameLoop();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function changeDir(newDir) {
+    const opp = { UP:"DOWN", DOWN:"UP", LEFT:"RIGHT", RIGHT:"LEFT" };
+    if (opp[newDir] !== dir) dir = newDir;
+  }
+
+  function draw() {
+    const cellPx = Math.min(Math.floor((window.innerWidth - 80) / SIZE), Math.floor(448 / SIZE));
+    const gameOverState = !playing && score > 0;
+
+    container.innerHTML = `
+      <div class="game-wrap" id="snake-wrap" tabindex="0" style="outline:none;">
+        <div class="stats-bar">
+          <div class="stat-box" style="background:#e6f9e8;">
+            <div class="stat-label" style="color:#2b8a3e;">Score</div>
+            <div class="stat-value" style="color:#1b5e20;">${score}</div>
+          </div>
+          <div class="stat-box" style="background:#fefce8;">
+            <div class="stat-label" style="color:#ca8a04;">Record</div>
+            <div class="stat-value" style="color:#a16207;">${bestScore}</div>
+          </div>
+        </div>
+
+        <div class="snake-grid" style="grid-template-columns:repeat(${SIZE},${cellPx}px);grid-template-rows:repeat(${SIZE},${cellPx}px);">
+          ${Array.from({length: SIZE*SIZE}).map((_,i) => {
+            const x = i % SIZE, y = Math.floor(i / SIZE);
+            const isHead = snake[0] && snake[0].x === x && snake[0].y === y;
+            const isBody = snake.slice(1).some(s => s.x === x && s.y === y);
+            const isFood = food.x === x && food.y === y;
+            let cls = (x+y)%2===0 ? 'even' : 'odd';
+            if (isHead) cls = 'head';
+            else if (isBody) cls = 'body';
+            return `<div class="snake-cell ${cls}" style="width:${cellPx}px;height:${cellPx}px;">
+              ${isFood ? '<span class="animate-pulse">🍎</span>' : ''}
+              ${isHead ? '👀' : ''}
+            </div>`;
+          }).join('')}
+        </div>
+
+        ${(!playing || paused) ? `
+        <div class="snake-overlay animate-scaleIn">
+          ${gameOverState ? `<h3 style="color:#c92a2a;">💀 Game Over !</h3><p>Score : ${score}</p>` :
+            paused ? `<h3 style="color:#e67700;">⏸️ Pause</h3>` :
+            `<p>Flèches / ZQSD pour bouger<br>Swipe sur mobile 📱</p>`
+          }
+          <button class="btn-primary" style="background:#40c057;" id="snake-play-btn">
+            ${gameOverState ? '🔄 Rejouer' : paused ? '▶️ Reprendre' : '▶️ Jouer !'}
+          </button>
+        </div>` : ''}
+
+        ${playing && !paused ? `
+        <div class="mobile-controls">
+          <div></div>
+          <button class="ctrl-btn" onclick="snakeDir('UP')">↑</button>
+          <div></div>
+          <button class="ctrl-btn" onclick="snakeDir('LEFT')">←</button>
+          <button class="ctrl-btn pause-btn" onclick="snakePause()">⏸️</button>
+          <button class="ctrl-btn" onclick="snakeDir('RIGHT')">→</button>
+          <div></div>
+          <button class="ctrl-btn" onclick="snakeDir('DOWN')">↓</button>
+          <div></div>
+        </div>` : ''}
+      </div>
+    `;
+
+    const playBtn = document.getElementById('snake-play-btn');
+    if (playBtn) {
+      playBtn.addEventListener('click', () => {
+        if (paused) { paused = false; draw(); }
+        else startGame();
+      });
+    }
+
+    const wrap = document.getElementById('snake-wrap');
+    if (wrap) {
+      wrap.focus();
+      wrap.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        touchStart = { x: t.clientX, y: t.clientY };
+      }, { passive: true });
+      wrap.addEventListener('touchend', e => {
+        if (!touchStart) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+        if (Math.abs(dx) > Math.abs(dy)) changeDir(dx > 0 ? 'RIGHT' : 'LEFT');
+        else changeDir(dy > 0 ? 'DOWN' : 'UP');
+      }, { passive: true });
+    }
+  }
+
+  // Keyboard
+  function handleKey(e) {
+    const target = document.getElementById('snake-wrap');
+    if (!target) return;
+    if (e.key === ' ') {
+      e.preventDefault();
+      if (!playing) startGame();
+      else { paused = !paused; draw(); }
+      return;
+    }
+    const map = {
+      ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT',
+      z:'UP', s:'DOWN', q:'LEFT', d:'RIGHT',
+      Z:'UP', S:'DOWN', Q:'LEFT', D:'RIGHT',
+    };
+    if (map[e.key]) { e.preventDefault(); changeDir(map[e.key]); }
+  }
+
+  window.snakeDir = changeDir;
+  window.snakePause = () => { paused = true; draw(); };
+  window.snakeKeyHandler = handleKey;
+  window.addEventListener('keydown', handleKey);
+
+  // Cleanup on navigation
+  window.snakeCleanup = () => {
+    if (interval) clearInterval(interval);
+    window.removeEventListener('keydown', handleKey);
+  };
+
+  init();
+}
+
+
+/* ┌──────────────────────────────────────────────────────────────────┐
+   │                                                                  │
+   │  ★★★  ÉTAPE 2 : CODER LE JEU ICI  ★★★                         │
+   │                                                                  │
+   │  Modèle à copier-coller :                                       │
+   │                                                                  │
+   │  function renderMonSuperJeu(container) {                         │
+   │    let score = 0;                                                │
+   │                                                                  │
+   │    function draw() {                                             │
+   │      container.innerHTML = `                                     │
+   │        <div class="game-wrap">                                   │
+   │          <div class="stats-bar">                                 │
+   │            <div class="stat-box" style="background:#edf2ff;">    │
+   │              <div class="stat-label"                             │
+   │                   style="color:#4c6ef5;">Score</div>             │
+   │              <div class="stat-value"                             │
+   │                   style="color:#364fc7;">${score}</div>          │
+   │            </div>                                                │
+   │          </div>                                                  │
+   │          <button class="btn-primary"                             │
+   │                  style="background:#4c6ef5;"                     │
+   │                  id="btn-click">Cliquer !</button>               │
+   │        </div>                                                    │
+   │      `;                                                          │
+   │      document.getElementById('btn-click')                        │
+   │        .addEventListener('click', () => { score++; draw(); });   │
+   │    }                                                             │
+   │                                                                  │
+   │    draw();                                                       │
+   │  }                                                               │
+   │                                                                  │
+   │  Puis ajouter l'entrée dans le tableau GAMES plus haut !        │
+   │  (chercher « ÉTAPE 1 : AJOUTER UN JEU ICI »)                   │
+   │                                                                  │
+   └──────────────────────────────────────────────────────────────────┘ */
+
+
+/* ╔══════════════════════════════════════════════════════════════════╗
+   ║                                                                ║
+   ║  🖥️  MOTEUR DU SITE (navigation, affichage)                   ║
+   ║                                                                ║
+   ║  Pas besoin de toucher à cette section pour ajouter un jeu.    ║
+   ║                                                                ║
+   ╚══════════════════════════════════════════════════════════════════╝ */
+
+let currentView = "hub"; // "hub" ou l'id d'un jeu
+const app = document.getElementById('app');
+
+function navigate(view) {
+  // Cleanup snake si on quitte
+  if (currentView === 'snake' && window.snakeCleanup) window.snakeCleanup();
+  currentView = view;
+  renderApp();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderApp() {
+  if (currentView === "hub") {
+    renderHub();
+  } else {
+    renderGamePlayer(currentView);
+  }
+}
+
+function renderHub() {
+  const diffClass = d => d === 'Facile' ? 'tag-easy' : d === 'Moyen' ? 'tag-medium' : 'tag-hard';
+
+  app.innerHTML = `
+    <!-- Header -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="header-logo animate-float">🎮</div>
+        <div>
+          <div class="header-title">Les Savry</div>
+          <div class="header-sub">Game Hub Familial</div>
+        </div>
+        <div class="header-status">
+          <span class="header-dot"></span> En ligne
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <div class="hero animate-slideUp">
+      <h2>🎲 Salle de Jeux 🎲</h2>
+      <p>Bienvenue chez les Savry ! Choisis ton jeu et c'est parti pour le fun 🎉</p>
+      <div class="hero-badge">
+        <span style="font-size:18px;">🕹️</span>
+        ${GAMES.length} jeu${GAMES.length > 1 ? 'x' : ''} disponible${GAMES.length > 1 ? 's' : ''}
+      </div>
+    </div>
+
+    <!-- Games Grid -->
+    ${GAMES.length > 0 ? `
+    <div class="games-grid">
+      ${GAMES.map((game, i) => `
+        <button class="game-card animate-slideUp" style="animation-delay:${i*100}ms;animation-fill-mode:both;" data-game="${game.id}">
+          <div class="card-header" style="background:${game.gradient};">
+            <span class="emoji">${game.emoji}</span>
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+          </div>
+          <div class="card-body">
+            <h3>${game.title}</h3>
+            <p>${game.description}</p>
+            <div class="card-tags">
+              <span class="tag ${diffClass(game.difficulty)}">${game.difficulty}</span>
+              <span class="tag tag-players">👥 ${game.players} joueur${game.players !== '1' ? 's' : ''}</span>
+            </div>
+            <div class="card-play">
+              <span>Jouer</span>
+              <span class="play-arrow">→</span>
+            </div>
+          </div>
+        </button>
+      `).join('')}
+    </div>` : `
+    <div style="text-align:center;padding:80px 20px;color:#ccc;">
+      <div style="font-size:60px;margin-bottom:16px;">🎮</div>
+      <p style="font-size:18px;font-weight:600;">Aucun jeu pour le moment</p>
+      <p style="font-size:14px;margin-top:4px;">Ajoutez un jeu dans le tableau GAMES !</p>
+    </div>`}
+
+    <!-- Footer -->
+    <div class="footer">Fait avec ❤️ par la famille Savry</div>
+  `;
+
+  // Bind click events
+  app.querySelectorAll('.game-card').forEach(card => {
+    card.addEventListener('click', () => navigate(card.dataset.game));
+  });
+}
+
+function renderGamePlayer(gameId) {
+  const game = GAMES.find(g => g.id === gameId);
+  if (!game) {
+    app.innerHTML = `
+      <div style="text-align:center;padding:100px 20px;">
+        <div style="font-size:60px;margin-bottom:16px;">🤔</div>
+        <h2 style="font-size:24px;font-weight:700;color:#555;">Jeu introuvable</h2>
+        <button class="btn-primary" style="background:var(--savry-500);margin-top:20px;" onclick="navigate('hub')">← Retour</button>
+      </div>
+    `;
+    return;
+  }
+
+  app.innerHTML = `
+    <!-- Header -->
+    <header class="header">
+      <div class="header-inner">
+        <button class="btn-back" onclick="navigate('hub')">
+          <span class="arrow">←</span>
+          <span>Retour</span>
+        </button>
+        <div class="game-header-title">${game.emoji} ${game.title}</div>
+        <div class="header-status">
+          <span class="header-dot"></span> En ligne
+        </div>
+      </div>
+    </header>
+
+    <!-- Game -->
+    <div class="game-player animate-scaleIn">
+      <div class="game-player-header">
+        <span class="gp-emoji">${game.emoji}</span>
+        <div>
+          <div class="gp-title">${game.title}</div>
+          <div class="gp-desc">${game.description}</div>
+        </div>
+        <span class="tag tag-players" style="margin-left:auto;">👥 ${game.players}</span>
+      </div>
+      <div class="game-container">
+        <div id="game-mount" style="width:100%;"></div>
+      </div>
+    </div>
+  `;
+
+  const mount = document.getElementById('game-mount');
+  game.render(mount);
+}
+
+// Make navigate global for onclick handlers
+window.navigate = navigate;
+
+// Start
+renderApp();
+</script>
+</body>
 </html>
