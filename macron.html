@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>La Nuit du Président : Kawaii Horror</title>
+    <style>
+        /* Importation d'une police "mignonne" mais lisible */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+        :root {
+            --bg-color: #2d0018; /* Violet très sombre (Horror) */
+            --accent-pink: #ff0055; /* Rose Néon (Kawaii/Danger) */
+            --accent-blue: #00f2ea; /* Bleu Cyan (Tech) */
+            --text-color: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Empêche le scroll */
+            background-color: var(--bg-color);
+            font-family: 'Fredoka One', cursive;
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none; /* Empêche la sélection de texte */
+            touch-action: none; /* Améliore le tactile */
+        }
+
+        /* Conteneur principal du jeu */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 800px; /* Largeur max sur PC */
+            max-height: 600px;
+            box-shadow: 0 0 50px rgba(255, 0, 85, 0.2);
+            overflow: hidden;
+            border-radius: 8px;
+            background: radial-gradient(circle at center, #3d0028 0%, #1a000d 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Interface Utilisateur (UI) flottante */
+        .ui-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(45, 0, 24, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+            transition: opacity 0.3s;
+            text-align: center;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 4px 4px 0px var(--accent-pink);
+            color: var(--accent-blue);
+            animation: float 3s infinite ease-in-out;
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            max-width: 80%;
+        }
+
+        /* Style des boutons */
+        button {
+            background: linear-gradient(45deg, var(--accent-pink), #ff5e62);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-family: 'Fredoka One', cursive;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(255, 0, 85, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 10px rgba(255, 0, 85, 0.4);
+        }
+
+        /* Score en haut à gauche */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 1.5rem;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        /* Meilleur Score en haut à droite */
+        #highscore-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.2rem;
+            color: var(--accent-blue);
+            pointer-events: none;
+        }
+
+        /* Animation flottante pour le titre */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Canvas où le jeu est dessiné -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Affichage tête haute (HUD) -->
+        <div id="hud">Croissance: <span id="score">0</span>%</div>
+        <div id="highscore-display">Record: <span id="highscore">0</span>%</div>
+
+        <!-- Écran d'accueil -->
+        <div id="start-screen" class="ui-screen">
+            <h1>LA NUIT DU PRÉSIDENT</h1>
+            <p>Thème : Kawaii Horror</p>
+            <p>Incarnez Manu. Évitez les Fantômes de la Dette.<br>Récupérez les Cœurs de Croissance.</p>
+            <p style="font-size: 0.9rem; color: #aaa;">Contrôles : Flèches / Toucher l'écran</p>
+            <button id="start-btn">Lancer le Mandat</button>
+        </div>
+
+        <!-- Écran de Fin de Jeu -->
+        <div id="game-over-screen" class="ui-screen hidden">
+            <h1 style="color: var(--accent-pink);">DISSOLUTION !</h1>
+            <p>Score Final : <span id="final-score">0</span>%</p>
+            <button id="restart-btn">Nouveau Quinquennat</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * MOTEUR DE JEU JAVASCRIPT - MODE CRÉATIF
+ * Auteur : Senior Creative Dev
+ * Langage : JS Moderne (ES6+)
+ */
+
+// --- 1. SYSTÈME AUDIO (Synthétiseur Web Audio API) ---
+// On génère tous les sons mathématiquement. Pas de fichiers mp3.
+const AudioEngine = {
+    ctx: null,
+
+    init() {
+        // Initialisation du contexte audio (nécessite un clic utilisateur)
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    },
+
+    // Fonction générique pour jouer un son
+    playTone(freq, type, duration, vol = 0.1, slide = 0) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+       
+        osc.type = type; // 'sine', 'square', 'sawtooth', 'triangle'
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+       
+        // Effet de glissement (slide) pour des sons "arcade"
+        if (slide !== 0) {
+            osc.frequency.linearRampToValueAtTime(freq + slide, this.ctx.currentTime + duration);
+        }
+
+        // Enveloppe de volume (Fade in / Fade out)
+        gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+        // Connexion
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+       
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    },
+
+    // Son de collecte (Cœur) - Un son aigu et joyeux
+    playCollect() {
+        this.playTone(600, 'sine', 0.1, 0.1, 200);
+        setTimeout(() => this.playTone(900, 'sine', 0.2, 0.1, 0), 100);
+    },
+
+    // Son de mort (Game Over) - Un son grave et distordu
+    playGameOver() {
+        this.playTone(200, 'sawtooth', 0.5, 0.2, -150);
+        setTimeout(() => this.playTone(100, 'square', 0.5, 0.2, -50), 200);
+    },
+
+    // Son de pas ou d'ambiance
+    playMove() {
+        this.playTone(150, 'triangle', 0.05, 0.05);
+    }
+};
+
+// --- 2. CONFIGURATION DU JEU ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let animationId;
+let frames = 0;
+let score = 0;
+let highScore = localStorage.getItem('macron_horror_highscore') || 0;
+
+// Mise à jour de l'affichage du record au chargement
+document.getElementById('highscore').innerText = highScore;
+
+// État du jeu
+let gameState = {
+    current: 'MENU', // MENU, PLAYING, GAMEOVER
+    width: 0,
+    height: 0
+};
+
+// Gestion du redimensionnement (Responsive)
+function resize() {
+    gameState.width = canvas.parentElement.clientWidth;
+    gameState.height = canvas.parentElement.clientHeight;
+    canvas.width = gameState.width;
+    canvas.height = gameState.height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- 3. CLASSES D'OBJETS ---
+
+// Le Joueur (Emmanuel Macron version Kawaii)
+class Player {
+    constructor() {
+        this.size = 30;
+        this.x = gameState.width / 2;
+        this.y = gameState.height / 2;
+        this.speed = 5;
+        this.vx = 0;
+        this.vy = 0;
+        this.angle = 0;
+    }
+
+    update(input) {
+        // Déplacement fluide
+        if (input.keys['ArrowUp']) this.vy = -this.speed;
+        else if (input.keys['ArrowDown']) this.vy = this.speed;
+        else this.vy = 0;
+
+        if (input.keys['ArrowLeft']) this.vx = -this.speed;
+        else if (input.keys['ArrowRight']) this.vx = this.speed;
+        else this.vx = 0;
+
+        // Gestion Tactile
+        if (input.touch.active) {
+            const dx = input.touch.x - this.x;
+            const dy = input.touch.y - this.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+           
+            if (dist > 5) {
+                this.vx = (dx / dist) * this.speed;
+                this.vy = (dy / dist) * this.speed;
+            } else {
+                this.vx = 0; this.vy = 0;
+            }
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Collisions avec les murs (limites de l'écran)
+        if (this.x < this.size) this.x = this.size;
+        if (this.x > gameState.width - this.size) this.x = gameState.width - this.size;
+        if (this.y < this.size) this.y = this.size;
+        if (this.y > gameState.height - this.size) this.y = gameState.height - this.size;
+       
+        // Petite oscillation "respiration"
+        this.angle += 0.05;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+       
+        // Effet de lumière (Torche/Aura) pour le côté Horror
+        const gradient = ctx.createRadialGradient(0, 0, 10, 0, 0, 150);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, 150, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Corps (Costume Bleu Présidentiel)
+        ctx.fillStyle = '#091e38';
+        ctx.beginPath();
+        ctx.arc(0, 10, this.size - 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tête (Ronde et mignonne)
+        ctx.fillStyle = '#ffdbac';
+        ctx.beginPath();
+        ctx.arc(0, -5, this.size - 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Yeux (Grands style Kawaii)
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(-8, -5, 3, 0, Math.PI * 2); // Œil gauche
+        ctx.arc(8, -5, 3, 0, Math.PI * 2);  // Œil droit
+        ctx.fill();
+
+        // Écharpe tricolore (Détail subtil)
+        ctx.fillStyle = '#002654'; // Bleu
+        ctx.fillRect(-10, 10, 6, 10);
+        ctx.fillStyle = '#ffffff'; // Blanc
+        ctx.fillRect(-4, 10, 6, 10);
+        ctx.fillStyle = '#ed2939'; // Rouge
+        ctx.fillRect(2, 10, 6, 10);
+
+        ctx.restore();
+    }
+}
+
+// Les Ennemis (Fantômes de la Dette)
+class Enemy {
+    constructor() {
+        // Apparition aléatoire sur les bords
+        if (Math.random() < 0.5) {
+            this.x = Math.random() < 0.5 ? -50 : gameState.width + 50;
+            this.y = Math.random() * gameState.height;
+        } else {
+            this.x = Math.random() * gameState.width;
+            this.y = Math.random() < 0.5 ? -50 : gameState.height + 50;
+        }
+       
+        this.size = 25;
+        this.speed = 1.5 + Math.random() * 1.5; // Vitesse variable
+        this.color = '#ff0055'; // Rose Néon effrayant
+        this.angle = 0;
+    }
+
+    update(player) {
+        // Poursuite simple (style Zombie)
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+       
+        this.x += (dx / dist) * this.speed;
+        this.y += (dy / dist) * this.speed;
+       
+        this.angle += 0.1;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(Math.sin(this.angle) * 0.1); // Oscillation fantomatique
+
+        // Ombre portée (Glow)
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+
+        // Forme de fantôme (Arc + Vagues en bas)
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, -5, this.size, Math.PI, 0); // Tête arrondie
+        ctx.lineTo(this.size, 15);
+        ctx.lineTo(0, 5); // Pointe milieu
+        ctx.lineTo(-this.size, 15);
+        ctx.fill();
+
+        // Yeux effrayants (X)
+        ctx.strokeStyle = '#2d0018';
+        ctx.lineWidth = 3;
+       
+        // Œil gauche
+        ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-4, 1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(-10, 1); ctx.stroke();
+
+        // Œil droit
+        ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(10, 1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(10, -5); ctx.lineTo(4, 1); ctx.stroke();
+       
+        // Texte "DETTE" flottant au dessus
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("€€€", 0, -35);
+
+        ctx.restore();
+    }
+}
+
+// Les Bonus (Cœurs de Croissance)
+class Coin {
+    constructor() {
+        this.x = Math.random() * (gameState.width - 40) + 20;
+        this.y = Math.random() * (gameState.height - 40) + 20;
+        this.size = 15;
+        this.pulse = 0;
+    }
+
+    draw() {
+        this.pulse += 0.1;
+        const scale = 1 + Math.sin(this.pulse) * 0.2; // Battement de cœur
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(scale, scale);
+       
+        // Dessin du cœur
+        ctx.fillStyle = '#00f2ea'; // Cyan Kawaii
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#00f2ea';
+        ctx.beginPath();
+        ctx.moveTo(0, 5);
+        ctx.bezierCurveTo(0, 5, -10, -5, -10, -10);
+        ctx.bezierCurveTo(-10, -15, -5, -15, 0, -10);
+        ctx.bezierCurveTo(5, -15, 10, -15, 10, -10);
+        ctx.bezierCurveTo(10, -5, 0, 5, 0, 5);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// Système de Particules (Explosions Kawaii)
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.life = 1.0;
+        this.color = color;
+        this.size = Math.random() * 5 + 2;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.02; // Disparition progressive
+        this.vx *= 0.95; // Friction
+        this.vy *= 0.95;
+    }
+
+    draw() {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+// --- 4. GESTION DES ENTRÉES (CLAVIER & TACTILE) ---
+const Input = {
+    keys: {},
+    touch: { x: 0, y: 0, active: false },
+
+    init() {
+        window.addEventListener('keydown', e => this.keys[e.code] = true);
+        window.addEventListener('keyup', e => this.keys[e.code] = false);
+
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            this.touch.active = true;
+            this.updateTouch(e.touches[0]);
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            this.updateTouch(e.touches[0]);
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', e => {
+            this.touch.active = false;
+        });
+    },
+
+    updateTouch(touch) {
+        const rect = canvas.getBoundingClientRect();
+        this.touch.x = touch.clientX - rect.left;
+        this.touch.y = touch.clientY - rect.top;
+    }
+};
+Input.init();
+
+// --- 5. BOUCLE DE JEU ---
+let player;
+let enemies = [];
+let coins = [];
+let particles = [];
+let difficultyTimer = 0;
+
+function initGame() {
+    AudioEngine.init();
+   
+    player = new Player();
+    enemies = [];
+    coins = [];
+    particles = [];
+    score = 0;
+    frames = 0;
+    difficultyTimer = 0;
+
+    // Ajouter un premier bonus
+    coins.push(new Coin());
+
+    // UI
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('score').innerText = '0';
+
+    gameState.current = 'PLAYING';
+    loop();
+}
+
+function spawnParticles(x, y, color) {
+    for (let i = 0; i < 15; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+function gameOver() {
+    gameState.current = 'GAMEOVER';
+    AudioEngine.playGameOver();
+   
+    // Sauvegarde du score
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('macron_horror_highscore', highScore);
+        document.getElementById('highscore').innerText = highScore;
+    }
+
+    // Affichage écran fin
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('game-over-screen').classList.remove('hidden');
+   
+    // Secousse de l'écran (Game Feel)
+    canvas.style.transform = 'translate(5px, 5px)';
+    setTimeout(() => canvas.style.transform = 'none', 100);
+}
+
+function loop() {
+    if (gameState.current !== 'PLAYING') return;
+
+    // 1. Nettoyage du Canvas (avec trace légère pour effet de flou/horror)
+    ctx.fillStyle = 'rgba(45, 0, 24, 0.3)';
+    ctx.fillRect(0, 0, gameState.width, gameState.height);
+
+    // 2. Logique du jeu
+    frames++;
+    difficultyTimer++;
+
+    player.update(Input);
+    player.draw();
+
+    // Apparition des ennemis (Difficulté progressive)
+    if (frames % Math.max(20, 100 - Math.floor(score / 5)) === 0) {
+        enemies.push(new Enemy());
+    }
+
+    // Gestion des Ennemis
+    enemies.forEach((enemy, index) => {
+        enemy.update(player);
+        enemy.draw();
+
+        // Collision Joueur <-> Ennemi
+        const dx = player.x - enemy.x;
+        const dy = player.y - enemy.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        if (dist < player.size + enemy.size - 10) {
+            spawnParticles(player.x, player.y, '#ff0055');
+            gameOver();
+        }
+    });
+
+    // Gestion des Bonus
+    coins.forEach((coin, index) => {
+        coin.draw();
+       
+        // Collision Joueur <-> Bonus
+        const dx = player.x - coin.x;
+        const dy = player.y - coin.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        if (dist < player.size + coin.size) {
+            score += 10; // +10% de croissance
+            document.getElementById('score').innerText = score;
+            AudioEngine.playCollect();
+            spawnParticles(coin.x, coin.y, '#00f2ea');
+           
+            coins.splice(index, 1);
+           
+            // Faire apparaître un nouveau bonus ailleurs
+            coins.push(new Coin());
+        }
+    });
+
+    // Gestion des Particules
+    particles.forEach((p, index) => {
+        p.update();
+        p.draw();
+        if (p.life <= 0) particles.splice(index, 1);
+    });
+
+    // 3. Appel de la prochaine frame
+    animationId = requestAnimationFrame(loop);
+}
+
+// --- 6. ÉVÉNEMENTS BOUTONS ---
+document.getElementById('start-btn').addEventListener('click', initGame);
+document.getElementById('restart-btn').addEventListener('click', initGame);
+
+</script>
+</body>
+</html>
