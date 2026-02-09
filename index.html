@@ -322,6 +322,17 @@ const GAMES = [
     difficulty: "Moyen",
   },
 
+  {
+    id: "kawaii_defense",
+    title: "Kawaii Defense",
+    description: "Défendez votre base contre des vagues d'ennemis dans un monde kawaii !",
+    emoji: "🏰",
+    gradient: "linear-gradient(135deg, #f06595, #845ef7)",
+    players: "1",
+    difficulty: "Moyen",
+    external: "kawaii_defense.html",  // ← Lien vers le fichier HTML externe
+  },
+
   /* ┌──────────────────────────────────────────────────────────────┐
      │                                                              │
      │  ★★★  ÉTAPE 1 : AJOUTER UN JEU ICI  ★★★                   │
@@ -358,7 +369,7 @@ const GAMES = [
 
 
 /* ─────────────────────────────────────────────────────────────────
-   🎮 JEU 1 : LA NUIT DU PRÉSIDENT (Kawaii Horror)
+   🎮 JEU 4 : LA NUIT DU PRÉSIDENT (Kawaii Horror)
    ───────────────────────────────────────────────────────────────── */
 
 function renderPresident(container) {
@@ -703,6 +714,14 @@ const app = document.getElementById('app');
 function navigate(view) {
   // Cleanup des jeux si on quitte
   if (currentView === 'president' && window.presidentCleanup) window.presidentCleanup();
+
+  // Si le jeu est externe (fichier HTML séparé), on l'ouvre
+  const game = GAMES.find(g => g.id === view);
+  if (game && game.external) {
+    window.location.href = game.external;
+    return;
+  }
+
   currentView = view;
   renderApp();
   window.scrollTo({ top: 0, behavior: 'smooth' });
